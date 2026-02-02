@@ -35,7 +35,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: wifi-scanner-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: android-app/app/build/outputs/apk/debug/app-debug.apk
         retention-days: 30
 
     - name: Build Release APK (unsigned)
@@ -45,5 +45,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: wifi-scanner-release
-        path: app/build/outputs/apk/release/app-release-unsigned.apk
+        path: android-app/app/build/outputs/apk/release/app-release-unsigned.apk
         retention-days: 30
