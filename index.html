@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Access Point Planner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #16213e;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            border-bottom: 1px solid #0f3460;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #e94560;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: #0f3460;
+            color: #eee;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #e94560;
+        }
+
+        .btn-primary {
+            background: #e94560;
+        }
+
+        .btn-primary:hover {
+            background: #ff6b6b;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        .btn.active {
+            background: #4ecca3;
+            color: #1a1a2e;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+            background: #0f0f23;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #plan-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        #floor-plan {
+            max-width: 100%;
+            display: block;
+        }
+
+        .placeholder {
+            color: #666;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .placeholder p {
+            margin-bottom: 1rem;
+        }
+
+        .access-point {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: #e94560;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(233, 69, 96, 0.5);
+            transition: transform 0.2s, box-shadow 0.2s;
+            z-index: 10;
+        }
+
+        .access-point:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            box-shadow: 0 4px 20px rgba(233, 69, 96, 0.7);
+        }
+
+        .access-point.selected {
+            background: #4ecca3;
+            box-shadow: 0 2px 10px rgba(78, 204, 163, 0.5);
+        }
+
+        .scale-point {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #f39c12;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .scale-line {
+            position: absolute;
+            background: #f39c12;
+            height: 3px;
+            transform-origin: left center;
+            z-index: 15;
+            pointer-events: none;
+        }
+
+        .scale-label {
+            position: absolute;
+            background: #f39c12;
+            color: #1a1a2e;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            transform: translate(-50%, -150%);
+            z-index: 25;
+            white-space: nowrap;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: #16213e;
+            border-left: 1px solid #0f3460;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid #0f3460;
+            font-weight: bold;
+            color: #e94560;
+        }
+
+        .ap-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .ap-item {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .ap-item:hover {
+            background: #1a4a7a;
+        }
+
+        .ap-item.selected {
+            background: #4ecca3;
+            color: #1a1a2e;
+        }
+
+        .ap-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .ap-item-name {
+            font-weight: bold;
+        }
+
+        .ap-item-bssid {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .ap-item.selected .ap-item-bssid {
+            color: #1a1a2e;
+        }
+
+        .ap-item-coords {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .ap-item.selected .ap-item-coords {
+            color: #333;
+        }
+
+        .delete-btn {
+            background: #e94560;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #16213e;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .modal-header {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            color: #e94560;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #aaa;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            background: #0f0f23;
+            color: #eee;
+            font-family: monospace;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .instructions {
+            padding: 1rem;
+            background: #0f3460;
+            border-radius: 8px;
+            margin: 0.5rem;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .instructions h3 {
+            color: #4ecca3;
+            margin-bottom: 0.5rem;
+        }
+
+        .instructions ul {
+            margin-left: 1.2rem;
+        }
+
+        .instructions li {
+            margin-bottom: 0.25rem;
+        }
+
+        .scale-info {
+            padding: 1rem;
+            background: #0f3460;
+            border-radius: 8px;
+            margin: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .scale-info h3 {
+            color: #f39c12;
+            margin-bottom: 0.5rem;
+        }
+
+        .scale-info .value {
+            font-family: monospace;
+            color: #4ecca3;
+        }
+
+        .scale-info .not-set {
+            color: #888;
+            font-style: italic;
+        }
+
+        .mode-indicator {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f39c12;
+            color: #1a1a2e;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 100;
+            display: none;
+        }
+
+        .mode-indicator.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>WiFi AP Planner</h1>
+        <div class="controls">
+            <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                Load Floor Plan
+            </button>
+            <input type="file" id="file-input" accept="image/*" onchange="loadFloorPlan(event)">
+            <button class="btn btn-warning" id="scale-btn" onclick="toggleScaleMode()">Set Scale</button>
+            <button class="btn" onclick="exportData()">Export JSON</button>
+            <button class="btn" onclick="importData()">Import JSON</button>
+            <button class="btn" onclick="clearAll()">Clear All</button>
+        </div>
+    </header>
+
+    <div class="mode-indicator" id="mode-indicator">
+        Scale Mode: Click two points to define reference distance
+    </div>
+
+    <div class="main-container">
+        <div class="canvas-container">
+            <div id="plan-container">
+                <div class="placeholder" id="placeholder">
+                    <p>No floor plan loaded</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                        Load Floor Plan
+                    </button>
+                </div>
+                <img id="floor-plan" style="display: none;" onclick="handlePlanClick(event)">
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="sidebar-header">Access Points (<span id="ap-count">0</span>)</div>
+
+            <div class="scale-info">
+                <h3>Scale</h3>
+                <div id="scale-display">
+                    <span class="not-set">Not set - click "Set Scale" to calibrate</span>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <h3>Instructions</h3>
+                <ul>
+                    <li>Load a floor plan image</li>
+                    <li>Set scale by clicking two points</li>
+                    <li>Click on the plan to add APs</li>
+                    <li>Click an AP to select/edit it</li>
+                    <li>Export to save your work</li>
+                </ul>
+            </div>
+            <div class="ap-list" id="ap-list"></div>
+        </aside>
+    </div>
+
+    <div class="modal" id="ap-modal">
+        <div class="modal-content">
+            <div class="modal-header">Add Access Point</div>
+            <div class="form-group">
+                <label for="ap-name">Name</label>
+                <input type="text" id="ap-name" placeholder="AP-001">
+            </div>
+            <div class="form-group">
+                <label for="ap-bssid">BSSID (MAC Address)</label>
+                <input type="text" id="ap-bssid" placeholder="AA:BB:CC:DD:EE:FF">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveAccessPoint()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="scale-modal">
+        <div class="modal-content">
+            <div class="modal-header">Set Scale Distance</div>
+            <p style="color: #aaa; margin-bottom: 1rem;">Enter the real-world distance between the two points you selected.</p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="scale-distance">Distance</label>
+                    <input type="number" id="scale-distance" placeholder="10" min="0.01" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="scale-unit">Unit</label>
+                    <select id="scale-unit">
+                        <option value="m">Meters (m)</option>
+                        <option value="ft">Feet (ft)</option>
+                        <option value="cm">Centimeters (cm)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="cancelScale()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveScale()">Save Scale</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let accessPoints = [];
+        let selectedAP = null;
+        let pendingPosition = null;
+        let apCounter = 1;
+
+        // Scale-related state
+        let scaleMode = false;
+        let scalePoints = [];
+        let scale = null; // { pixelsPerUnit, unit, refLine: {x1,y1,x2,y2} }
+
+        function loadFloorPlan(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('floor-plan');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                document.getElementById('placeholder').style.display = 'none';
+
+                // Re-render after image loads
+                img.onload = () => {
+                    renderAccessPoints();
+                    renderScale();
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function toggleScaleMode() {
+            const img = document.getElementById('floor-plan');
+            if (img.style.display === 'none') {
+                alert('Please load a floor plan first');
+                return;
+            }
+
+            scaleMode = !scaleMode;
+            scalePoints = [];
+
+            const btn = document.getElementById('scale-btn');
+            const indicator = document.getElementById('mode-indicator');
+
+            if (scaleMode) {
+                btn.classList.add('active');
+                indicator.classList.add('active');
+                indicator.textContent = 'Scale Mode: Click first point...';
+            } else {
+                btn.classList.remove('active');
+                indicator.classList.remove('active');
+            }
+
+            renderScale();
+        }
+
+        function handlePlanClick(event) {
+            const img = document.getElementById('floor-plan');
+            const rect = img.getBoundingClientRect();
+
+            // Calculate position as percentage of image dimensions
+            const xPercent = ((event.clientX - rect.left) / rect.width) * 100;
+            const yPercent = ((event.clientY - rect.top) / rect.height) * 100;
+
+            // Also calculate pixel position relative to natural image size
+            const xPixel = (xPercent / 100) * img.naturalWidth;
+            const yPixel = (yPercent / 100) * img.naturalHeight;
+
+            if (scaleMode) {
+                handleScaleClick(xPercent, yPercent, xPixel, yPixel);
+            } else {
+                handleAPClick(xPercent, yPercent);
+            }
+        }
+
+        function handleScaleClick(xPercent, yPercent, xPixel, yPixel) {
+            const indicator = document.getElementById('mode-indicator');
+
+            scalePoints.push({ xPercent, yPercent, xPixel, yPixel });
+            renderScale();
+
+            if (scalePoints.length === 1) {
+                indicator.textContent = 'Scale Mode: Click second point...';
+            } else if (scalePoints.length === 2) {
+                indicator.textContent = 'Scale Mode: Enter distance...';
+                document.getElementById('scale-modal').classList.add('active');
+                document.getElementById('scale-distance').focus();
+            }
+        }
+
+        function handleAPClick(xPercent, yPercent) {
+            pendingPosition = { x: xPercent, y: yPercent };
+
+            // Pre-fill with suggested values
+            document.getElementById('ap-name').value = `AP-${String(apCounter).padStart(3, '0')}`;
+            document.getElementById('ap-bssid').value = generateRandomBSSID();
+
+            openModal();
+        }
+
+        function renderScale() {
+            const container = document.getElementById('plan-container');
+
+            // Remove existing scale elements
+            container.querySelectorAll('.scale-point, .scale-line, .scale-label').forEach(el => el.remove());
+
+            // Draw scale points
+            scalePoints.forEach(point => {
+                const dot = document.createElement('div');
+                dot.className = 'scale-point';
+                dot.style.left = point.xPercent + '%';
+                dot.style.top = point.yPercent + '%';
+                container.appendChild(dot);
+            });
+
+            // Draw line between points if we have two
+            if (scalePoints.length === 2 || (scale && scale.refLine)) {
+                const p1 = scalePoints.length === 2 ? scalePoints[0] : scale.refLine.p1;
+                const p2 = scalePoints.length === 2 ? scalePoints[1] : scale.refLine.p2;
+
+                const img = document.getElementById('floor-plan');
+                const imgRect = img.getBoundingClientRect();
+
+                // Convert percentages to pixels for display
+                const x1 = (p1.xPercent / 100) * imgRect.width;
+                const y1 = (p1.yPercent / 100) * imgRect.height;
+                const x2 = (p2.xPercent / 100) * imgRect.width;
+                const y2 = (p2.yPercent / 100) * imgRect.height;
+
+                const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+                const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+
+                const line = document.createElement('div');
+                line.className = 'scale-line';
+                line.style.left = p1.xPercent + '%';
+                line.style.top = p1.yPercent + '%';
+                line.style.width = length + 'px';
+                line.style.transform = `rotate(${angle}deg)`;
+                container.appendChild(line);
+
+                // Add label if scale is set
+                if (scale) {
+                    const midX = (p1.xPercent + p2.xPercent) / 2;
+                    const midY = (p1.yPercent + p2.yPercent) / 2;
+
+                    const label = document.createElement('div');
+                    label.className = 'scale-label';
+                    label.style.left = midX + '%';
+                    label.style.top = midY + '%';
+                    label.textContent = `${scale.distance} ${scale.unit}`;
+                    container.appendChild(label);
+                }
+
+                // Draw end points for saved scale
+                if (scale && scale.refLine && scalePoints.length === 0) {
+                    [p1, p2].forEach(point => {
+                        const dot = document.createElement('div');
+                        dot.className = 'scale-point';
+                        dot.style.left = point.xPercent + '%';
+                        dot.style.top = point.yPercent + '%';
+                        container.appendChild(dot);
+                    });
+                }
+            }
+        }
+
+        function saveScale() {
+            const distance = parseFloat(document.getElementById('scale-distance').value);
+            const unit = document.getElementById('scale-unit').value;
+
+            if (!distance || distance <= 0) {
+                alert('Please enter a valid distance');
+                return;
+            }
+
+            // Calculate pixel distance between points (using natural image coordinates)
+            const p1 = scalePoints[0];
+            const p2 = scalePoints[1];
+            const pixelDistance = Math.sqrt((p2.xPixel - p1.xPixel) ** 2 + (p2.yPixel - p1.yPixel) ** 2);
+
+            scale = {
+                pixelsPerUnit: pixelDistance / distance,
+                unit: unit,
+                distance: distance,
+                refLine: { p1, p2 }
+            };
+
+            // Exit scale mode
+            scaleMode = false;
+            scalePoints = [];
+            document.getElementById('scale-btn').classList.remove('active');
+            document.getElementById('mode-indicator').classList.remove('active');
+            document.getElementById('scale-modal').classList.remove('active');
+
+            updateScaleDisplay();
+            renderScale();
+            updateAPList(); // Refresh to show real-world coordinates
+        }
+
+        function cancelScale() {
+            scaleMode = false;
+            scalePoints = [];
+            document.getElementById('scale-btn').classList.remove('active');
+            document.getElementById('mode-indicator').classList.remove('active');
+            document.getElementById('scale-modal').classList.remove('active');
+            renderScale();
+        }
+
+        function updateScaleDisplay() {
+            const display = document.getElementById('scale-display');
+            if (scale) {
+                display.innerHTML = `
+                    <div><span class="value">${scale.pixelsPerUnit.toFixed(2)}</span> pixels per ${scale.unit}</div>
+                    <div style="margin-top: 0.5rem;">
+                        <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="clearScale()">Clear Scale</button>
+                    </div>
+                `;
+            } else {
+                display.innerHTML = '<span class="not-set">Not set - click "Set Scale" to calibrate</span>';
+            }
+        }
+
+        function clearScale() {
+            if (confirm('Clear the scale setting?')) {
+                scale = null;
+                updateScaleDisplay();
+                renderScale();
+                updateAPList();
+            }
+        }
+
+        function percentToRealWorld(xPercent, yPercent) {
+            if (!scale) return null;
+
+            const img = document.getElementById('floor-plan');
+            const xPixel = (xPercent / 100) * img.naturalWidth;
+            const yPixel = (yPercent / 100) * img.naturalHeight;
+
+            return {
+                x: (xPixel / scale.pixelsPerUnit).toFixed(2),
+                y: (yPixel / scale.pixelsPerUnit).toFixed(2),
+                unit: scale.unit
+            };
+        }
+
+        function generateRandomBSSID() {
+            const hex = '0123456789ABCDEF';
+            let bssid = '';
+            for (let i = 0; i < 6; i++) {
+                if (i > 0) bssid += ':';
+                bssid += hex[Math.floor(Math.random() * 16)];
+                bssid += hex[Math.floor(Math.random() * 16)];
+            }
+            return bssid;
+        }
+
+        function openModal() {
+            document.getElementById('ap-modal').classList.add('active');
+            document.getElementById('ap-name').focus();
+        }
+
+        function closeModal() {
+            document.getElementById('ap-modal').classList.remove('active');
+            pendingPosition = null;
+        }
+
+        function saveAccessPoint() {
+            const name = document.getElementById('ap-name').value.trim();
+            const bssid = document.getElementById('ap-bssid').value.trim().toUpperCase();
+
+            if (!name || !bssid) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            // Validate BSSID format
+            const bssidRegex = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
+            if (!bssidRegex.test(bssid)) {
+                alert('Invalid BSSID format. Use format: AA:BB:CC:DD:EE:FF');
+                return;
+            }
+
+            const ap = {
+                id: Date.now(),
+                name,
+                bssid,
+                x: pendingPosition.x,
+                y: pendingPosition.y
+            };
+
+            accessPoints.push(ap);
+            apCounter++;
+
+            closeModal();
+            renderAccessPoints();
+            updateAPList();
+        }
+
+        function renderAccessPoints() {
+            const container = document.getElementById('plan-container');
+
+            // Remove existing AP markers
+            container.querySelectorAll('.access-point').forEach(el => el.remove());
+
+            // Add markers for each AP
+            accessPoints.forEach((ap, index) => {
+                const marker = document.createElement('div');
+                marker.className = 'access-point' + (selectedAP === ap.id ? ' selected' : '');
+                marker.style.left = ap.x + '%';
+                marker.style.top = ap.y + '%';
+                marker.textContent = index + 1;
+                marker.title = `${ap.name}\n${ap.bssid}`;
+                marker.onclick = (e) => {
+                    e.stopPropagation();
+                    selectAP(ap.id);
+                };
+                container.appendChild(marker);
+            });
+        }
+
+        function updateAPList() {
+            const list = document.getElementById('ap-list');
+            document.getElementById('ap-count').textContent = accessPoints.length;
+
+            list.innerHTML = accessPoints.map((ap, index) => {
+                const realWorld = percentToRealWorld(ap.x, ap.y);
+                const coordsText = realWorld
+                    ? `Position: ${realWorld.x} × ${realWorld.y} ${realWorld.unit}`
+                    : `Position: ${ap.x.toFixed(1)}% × ${ap.y.toFixed(1)}%`;
+
+                return `
+                    <div class="ap-item ${selectedAP === ap.id ? 'selected' : ''}" onclick="selectAP(${ap.id})">
+                        <div class="ap-item-header">
+                            <span class="ap-item-name">${index + 1}. ${ap.name}</span>
+                            <button class="delete-btn" onclick="event.stopPropagation(); deleteAP(${ap.id})">×</button>
+                        </div>
+                        <div class="ap-item-bssid">${ap.bssid}</div>
+                        <div class="ap-item-coords">${coordsText}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectAP(id) {
+            selectedAP = selectedAP === id ? null : id;
+            renderAccessPoints();
+            updateAPList();
+        }
+
+        function deleteAP(id) {
+            if (confirm('Delete this access point?')) {
+                accessPoints = accessPoints.filter(ap => ap.id !== id);
+                if (selectedAP === id) selectedAP = null;
+                renderAccessPoints();
+                updateAPList();
+            }
+        }
+
+        function exportData() {
+            const img = document.getElementById('floor-plan');
+
+            // Calculate real-world positions for each AP
+            const apsWithRealWorld = accessPoints.map(ap => {
+                const result = { ...ap };
+                if (scale) {
+                    const xPixel = (ap.x / 100) * img.naturalWidth;
+                    const yPixel = (ap.y / 100) * img.naturalHeight;
+                    result.realX = parseFloat((xPixel / scale.pixelsPerUnit).toFixed(2));
+                    result.realY = parseFloat((yPixel / scale.pixelsPerUnit).toFixed(2));
+                }
+                return result;
+            });
+
+            const data = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                scale: scale ? {
+                    pixelsPerUnit: scale.pixelsPerUnit,
+                    unit: scale.unit,
+                    distance: scale.distance,
+                    refLine: scale.refLine
+                } : null,
+                imageSize: img.naturalWidth ? {
+                    width: img.naturalWidth,
+                    height: img.naturalHeight
+                } : null,
+                accessPoints: apsWithRealWorld
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'access-points.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.accessPoints && Array.isArray(data.accessPoints)) {
+                            accessPoints = data.accessPoints;
+                            apCounter = accessPoints.length + 1;
+
+                            // Import scale if present
+                            if (data.scale) {
+                                scale = data.scale;
+                                updateScaleDisplay();
+                            }
+
+                            renderAccessPoints();
+                            renderScale();
+                            updateAPList();
+                            alert(`Imported ${accessPoints.length} access points` +
+                                  (data.scale ? ` with scale (${data.scale.distance} ${data.scale.unit})` : ''));
+                        } else {
+                            alert('Invalid file format');
+                        }
+                    } catch (err) {
+                        alert('Error reading file: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function clearAll() {
+            if (accessPoints.length === 0 && !scale) return;
+            if (confirm('Remove all access points and scale?')) {
+                accessPoints = [];
+                selectedAP = null;
+                apCounter = 1;
+                scale = null;
+                scalePoints = [];
+                renderAccessPoints();
+                renderScale();
+                updateAPList();
+                updateScaleDisplay();
+            }
+        }
+
+        // Handle Enter key in modals
+        document.getElementById('ap-bssid').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') saveAccessPoint();
+        });
+
+        document.getElementById('scale-distance').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') saveScale();
+        });
+
+        // Close modal on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                cancelScale();
+            }
+        });
+
+        // Re-render scale line on window resize
+        window.addEventListener('resize', () => {
+            renderScale();
+        });
+    </script>
+</body>
+</html>
